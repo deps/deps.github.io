@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+
+<body>
+  <h1>Blippy</h1>
+
+  <div>
+    <h2>Sound</h2>
+    <div>
+      Frequency: <input type="number" min="50" max="500" value="175" class="sndInp" id="freqInput">
+    </div>
+
+    <div>
+      Attack: <input type="number" min="50" max="1000" value="100" class="sndInp" id="attackInput">
+    </div>
+    <div>
+      Sustain: <input type="number" min="50" max="1000" value="50" class="sndInp" id="sustainInput">
+    </div>
+    <div>
+      Decay: <input type="number" min="50" max="1000" value="200" class="sndInp" id="decayInput">
+    </div>
+
+    <button onclick="playSound()">Test sound</button>
+  </div>
+
+  <div>
+    <h2>
+      Play tones
+    </h2>
+
+    <div>
+      Milliseconds delay between tones at start:
+      <input type="number" min="10" max="1000" value="100" id="startMillis">
+    </div>
+
+    <div>
+      Maximum milliseconds delay (stop playing at):
+      <input type="number" min="4000.0" max="30000.0" value="10000" id="stopMillis">
+    </div>
+
+    <div>
+      Scale factor after each tone:
+      <input type="number" min="1.001" max="3.0" value="1.01" id="scaleFactor">
+    </div>
+
+    <button onclick="startTones()">Start</button>
+    <button onclick="stopTones()">Stop</button>
+
+  </div>
+
+
+
+
+  <script>
+    var playTimer = null
+    var currentMillis = 0
+
+    function startTones() {
+      stopTones();
+
+      const attackTime = Number(document.getElementById("attackInput").value);
+      const sustainTime = Number(document.getElementById("sustainInput").value);
+      const decayTime = Number(document.getElementById("decayInput").value);
+      const delayTime = Number(document.getElementById("startMillis").value);
+      currentMillis = delayTime + attackTime + sustainTime + decayTime;
+
+      console.log("Starting!");
+
+      playAndRecalcTimer();
+    }
+
+
+    function stopTones() {
+      if (playTimer == null)
+        return;
+
+      clearTimeout(playTimer);
+      playTimer = null;
+
+      console.log("Stopped!");
+    }
+
+    function playAndRecalcTimer() {
+      playSound();
+
+      currentMillis = currentMillis * Number(document.getElementById("scaleFactor").value)
+
+      if (currentMillis > Number(document.getElementById("stopMillis").value)) {
+        console.log("Delay reached maxmimum");
+        stopTones();
+      }
+      else {
+
+        //console.log("CurrentMillis: " + currentMillis);
+        playTimer = setTimeout(playAndRecalcTimer, currentMillis);
+      }
+    }
+
+
+    document.addEventListener("DOMContentLoaded", function () {
+      //setUp();
+    });
+
+
+
+    function playToneWithEnvelopeOld(frequency, attackTime, sustainTime, decayTime) {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.value = frequency;
+
+      // Connect oscillator to gain node
+      oscillator.connect(gainNode);
+      // Connect gain node to the destination
+      gainNode.connect(audioContext.destination);
+
+      // Set up envelope
+      const attack = attackTime / 1000;
+      const sustain = sustainTime / 1000;
+      const decay = decayTime / 1000;
+
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(1, audioContext.currentTime + attack);
+      gainNode.gain.linearRampToValueAtTime(0.7, audioContext.currentTime + attack + sustain);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + attack + sustain + decay);
+
+      // Start the oscillator
+      oscillator.start();
+
+      // Stop the oscillator after the total envelope duration
+      setTimeout(() => {
+        oscillator.stop();
+      }, (attackTime + sustainTime + decayTime));
+    }
+
+    function playToneWithEnvelope(frequency, attackTime, sustainTime, decayTime) {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.value = frequency;
+
+      // Connect oscillator to gain node
+      oscillator.connect(gainNode);
+      // Connect gain node to the destination
+      gainNode.connect(audioContext.destination);
+
+      // Set up envelope
+      const attack = attackTime / 1000;
+      const sustain = sustainTime / 1000;
+      const decay = decayTime / 1000;
+
+      // Start the oscillator slightly in the future to avoid clicks
+      const startTime = audioContext.currentTime + 0.01;
+      oscillator.start(startTime);
+
+      // Apply envelope
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(1, startTime + attack);
+      gainNode.gain.linearRampToValueAtTime(0.7, startTime + attack + sustain);
+      gainNode.gain.linearRampToValueAtTime(0, startTime + attack + sustain + decay);
+
+      // Stop the oscillator after the total envelope duration
+      const stopTime = startTime + attack + sustain + decay + 0.01;
+      oscillator.stop(stopTime);
+    }
+
+    function playSound() {
+      const freqInput = document.getElementById("freqInput");
+      const attackInput = document.getElementById("attackInput");
+      const sustainInput = document.getElementById("sustainInput");
+      const decayInput = document.getElementById("decayInput");
+
+      playToneWithEnvelope(freqInput.value, attackInput.value, sustainInput.value, decayInput.value);
+    }
+  </script>
+
+
+</body>
